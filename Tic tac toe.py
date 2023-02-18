@@ -18,6 +18,7 @@ def init_game_win():
     global new_gamemode
     global new_difficulty
     global new_reverse
+    global dd_difficulty
     
     game_win=Tk()
     game_win.geometry('1500x750')
@@ -39,7 +40,6 @@ def init_game_win():
 
     new_difficulty = StringVar(value = 'Easy')
     dd_difficulty = OptionMenu(frame_settings, new_difficulty, *['Easy', 'Medium', 'Hard'], command = update_settings)
-    dd_difficulty.grid(row=1, column=0)
 
     new_reverse = IntVar(value = 1)
     cb_reverse = Checkbutton(frame_settings, text = 'Reverse Tic tac toe', variable = new_reverse, onvalue = -1, offvalue = 1, command = lambda: update_settings(new_reverse.get()))
@@ -83,6 +83,8 @@ def update_settings(newval):
     global gamemode
     global difficulty
     global reverse
+    global dd_difficulty
+    
     if not(new_gamemode.get() == gamemode and new_difficulty.get() == difficulty and new_reverse.get() == reverse):
         if current_game != '':
             response = messagebox.askquestion("Reset game?", "Do you want to start a new game?")
@@ -91,11 +93,21 @@ def update_settings(newval):
                 new_difficulty.set(difficulty)
                 new_reverse.set(reverse)
             else:
+                if gamemode == "Double Player" and new_gamemode.get() == "Single Player":
+                    dd_difficulty.grid(row=1, column=0)
+                elif gamemode == "Single Player" and new_gamemode.get() == "Double Player":
+                    dd_difficulty.grid_forget()
+                
                 gamemode = new_gamemode.get()
                 difficulty = new_difficulty.get()
                 reverse = new_reverse.get()
                 reset()
         else:
+            if gamemode == "Double Player" and new_gamemode.get() == "Single Player":
+                    dd_difficulty.grid(row=1, column=0)
+            elif gamemode == "Single Player" and new_gamemode.get() == "Double Player":
+                    dd_difficulty.grid_forget()
+            
             gamemode = new_gamemode.get()
             difficulty = new_difficulty.get()
             reverse = new_reverse.get()
@@ -138,7 +150,7 @@ def ready():
     global computer_move
     
     if gamemode == "Double Player":
-        win = check_win(current_game, 1)
+        win = check_win(current_game, 1, reverse)
         if win == 10:
             messagebox.showinfo("Game Over", "Cross wins")
             reset()
@@ -149,7 +161,7 @@ def ready():
             messagebox.showinfo("Game Over", "It is a draw")
             reset()
     else:
-        win = check_win(current_game, computer_move)
+        win = check_win(current_game, computer_move, reverse)
         if win!= None:
             if win == 10:
                 messagebox.showinfo("Game Over", "Computer wins")
@@ -174,7 +186,6 @@ def select_square(square):
     global img_square
     global img_cross
     global img_circle
-    print(current_game)
     if symbol == "cross":
         grid[square-1]['image'] = img_cross
         symbol = "circle"
@@ -186,7 +197,7 @@ def select_square(square):
 
     return()
 
-def check_win(game, player):
+def check_win(game, player, rev):
     square_values = {}
     winner = 0
 
@@ -220,9 +231,9 @@ def check_win(game, player):
         else:
             return(0)
     elif winner == player:
-        return(10)
+        return(10 * rev)
     else:
-        return(-10)
+        return(-10 * rev)
 
 def get_moves(game):
     moves = []
@@ -245,14 +256,14 @@ def computer_play(game, level, rev):
         if rev == 1:
             #Checks all possible moves if it will win by playing that move
             for move in moves:
-                if check_win(game + str(move), comp_move) == 10:
+                if check_win(game + str(move), comp_move, rev) == 10:
                     best_move = move
                     break
             else:
                 #Checks all possible moves if opponent can win by playing there and blocks it if they can
                 for move in moves:
                     #0 is added as a fake move so that the move being checked is given the symbol of the opponent
-                    if check_win(game + '0' + str(move), comp_move) == -10:
+                    if check_win(game + '0' + str(move), comp_move, rev) == -10:
                         best_move = move
                         break
 
@@ -266,7 +277,7 @@ def computer_play(game, level, rev):
             
             #Checks if it will lose by playing the move for all moves and removes it from the list
             for move in moves:
-                if check_win(game + str(move), comp_move) == -10:
+                if check_win(game + str(move), comp_move, rev) == -10:
                     move_list.remove(move)
 
             ok_moves = list(move_list)
@@ -274,7 +285,7 @@ def computer_play(game, level, rev):
             #Checks if it can win if opponent plays the move for all moves and leaves those squares free
             for move in moves:
                 #0 is added as a fake move so that the move being checked is given the symbol of the opponent
-                if check_win(game + '0' + str(move), comp_move) == 10:
+                if check_win(game + '0' + str(move), comp_move, rev) == 10:
                     if move in move_list:
                         move_list.remove(move)
 
@@ -284,5 +295,60 @@ def computer_play(game, level, rev):
                 return(ok_moves[random.randrange(0, len(ok_moves))])
             else:
                 return(moves[random.randrange(0, len(moves))])
+
+    elif level == "Hard":
+        moves = get_moves(game)
+        move_evals = {}
+        best_move = 0
+        best_eval = -100
+
+        for move in moves:
+            move_evals[move] = evaluate(game + str(move), rev, 'minimise')
+        
+        for move, evaluation in move_evals.items():
+            if evaluation > best_eval:
+                best_eval = evaluation
+                best_move = move
+
+        return(best_move)
+
+def evaluate(game, rev, stage):
+    moves = get_moves(game)
+    if stage == 'maximise':
+        comp_move = (len(game) % 2) + 1
+    else:
+        comp_move = ((len(game) + 1) % 2) + 1
+
+    if check_win(game, comp_move, rev) != None:
+        return(check_win(game, comp_move, rev))
+    
+    else:
+        #If computer is playing the move, then this stage is activated and computer tries to maximise the evaluation as more evaluation means more chance of winning
+        if stage == 'maximise':
+            best_eval = -100
+            for move in moves:
+                best_eval = max(evaluate(game + str(move), rev, 'minimise'), best_eval)
+                if best_eval == 10:
+                    break
+            return(best_eval)
+
+        #If player is playing the move, then this stage is activated and the player tries to minimise the evaluation as less evaluation means more chance of computer losing
+        elif stage == 'minimise':
+            best_eval = 0
+            for move in moves:
+                evaluation = evaluate(game + str(move), rev, 'maximise')
+                #To avoid any case where player wins, we assume that if player can win, they will win
+                if evaluation == -10:
+                    best_eval = -10
+                    break
+                #The player may not always play perfectly, so if the player cannot win in the given move, then we take the average of the evaluation of all moves so that we can see the number of mistakes vs good moves that player can play
+                else:
+                    best_eval = best_eval + evaluation
+
+            if best_eval == -10:
+                return(best_eval)
+            else:
+                return(best_eval / len(moves))
+                
 
 init_game_win()
