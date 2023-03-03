@@ -148,6 +148,9 @@ def ready():
     global difficulty
     global reverse
     global computer_move
+
+    #Uncomment this line to print the evaluations of all next moves after each move is played. Enabling this causes lot of hanging
+    #print(next_move_evals(current_game, reverse))
     
     if gamemode == "Double Player":
         win = check_win(current_game, 1, reverse)
@@ -297,13 +300,9 @@ def computer_play(game, level, rev):
                 return(moves[random.randrange(0, len(moves))])
 
     elif level == "Hard":
-        moves = get_moves(game)
-        move_evals = {}
         best_move = 0
         best_eval = -100
-
-        for move in moves:
-            move_evals[move] = evaluate(game + str(move), rev, 'minimise')
+        move_evals = next_move_evals(game, rev)
         
         for move, evaluation in move_evals.items():
             if evaluation > best_eval:
@@ -349,6 +348,15 @@ def evaluate(game, rev, stage):
                 return(best_eval)
             else:
                 return(best_eval / len(moves))
-                
 
-init_game_win()
+def next_move_evals(game, rev):
+    moves = get_moves(game)
+    move_evals = {}
+    
+    for move in moves:
+        move_evals[move] = evaluate(game + str(move), rev, 'minimise')
+
+    return(move_evals)
+                
+if __name__ == '__main__':
+    init_game_win()
